@@ -53,7 +53,7 @@ install_requires = [
     'pycrypto==2.6.1',
     'cryptography==1.1.2',
     'pyopenssl==0.15.1',
-    'pyjwt==1.4.0',
+    'pyjwt==1.4.1',
     'xmltodict==0.9.2',
     'lockfile==0.12.2',
     'future==0.15.2',
