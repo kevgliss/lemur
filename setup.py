@@ -73,7 +73,7 @@ docs_require = [
 ]
 
 dev_requires = [
-    'flake8>=2.0,<3.0',
+    'flake8>=3.0,<4.0',
     'invoke',
     'twine'
 ]
