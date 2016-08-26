@@ -585,9 +585,10 @@ class Certificates(AuthenticatedResource):
 
         if permission.can():
             for destination in data['destinations']:
-                if destination.plugin.requires_key:
-                    if not cert.private_key:
-                        return dict('Unable to add destination: {0}. Certificate does not have required private key.'.format(destination.label))
+                if destination not in cert.destinations:
+                    if destination.plugin.requires_key:
+                        if not cert.private_key:
+                            return dict(message='Unable to add destination: {0}. Certificate does not have required private key.'.format(destination.label))
 
             return service.update(
                 certificate_id,
