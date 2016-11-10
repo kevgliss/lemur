@@ -51,7 +51,7 @@
     "streamqueue": "^0.1.1",
     "uglify-save-license": "^0.4.1",
     "karma": "~0.13.2",
-    "bower": "~1.4.1"
+    "bower": "~1.8.0"
   },
   "engines": {
     "node": ">=0.10.0"
