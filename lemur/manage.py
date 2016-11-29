@@ -1,7 +1,7 @@
 from __future__ import unicode_literals    # at top of module
 
 import arrow
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import Counter
 
 import os
@@ -649,98 +649,112 @@ def publish_unapproved_verisign_certificates():
     metrics.send('pending_certificates', 'gauge', certs)
 
 
-class Report(Command):
+report_manager = Manager(usage="Perform reporting operations.")
+
+
+@report_manager.command
+def certificates_issued(name=None, start=None, end=None):
     """
-    Defines a set of reports to be run periodically against Lemur.
+    Generates simple report of number of certificates issued by the authority, if no authority
+    is specified report on total number of certificates.
+
+    start: 'YYYY-MM-DD'
+    end: 'YYYY-MM-DD'
     """
-    option_list = (
-        Option('-n', '--name', dest='name', default=None, help='Name of the report to run.'),
-        Option('-d', '--duration', dest='duration', default=356, help='Number of days to run the report'),
-    )
 
-    def run(self, name, duration):
-        end = datetime.utcnow()
-        start = end - timedelta(days=duration)
+    def _calculate_row(authority):
+        day_cnt = Counter()
+        month_cnt = Counter()
+        year_cnt = Counter()
 
-        if name == 'authority':
-            self.certificates_issued(name, start, end)
+        for cert in authority.certificates:
+            date = cert.date_created.date()
+            day_cnt[date.day] += 1
+            month_cnt[date.month] += 1
+            year_cnt[date.year] += 1
 
-        elif name == 'activeFQDNS':
-            self.active_fqdns()
+        try:
+            day_avg = int(sum(day_cnt.values()) / len(day_cnt.keys()))
+        except ZeroDivisionError:
+            day_avg = 0
 
-    @staticmethod
-    def active_fqdns():
-        """
-        Generates a report that gives the number of active fqdns, but root domain.
-        :return:
-        """
-        from lemur.certificates.service import get_all_certs
-        sys.stdout.write("FQDN, Root Domain, Issuer, Total Length (days), Time until expiration (days)\n")
-        for cert in get_all_certs():
-            if not cert.expired:
-                now = arrow.utcnow()
-                ttl = now - cert.not_before
-                total_length = cert.not_after - cert.not_before
+        try:
+            month_avg = int(sum(month_cnt.values()) / len(month_cnt.keys()))
+        except ZeroDivisionError:
+            month_avg = 0
 
-                for fqdn in cert.domains:
-                    root_domain = ".".join(fqdn.name.split('.')[-2:])
-                    sys.stdout.write(", ".join([fqdn.name, root_domain, cert.issuer, str(total_length.days), str(ttl.days)]) + "\n")
+        try:
+            year_avg = int(sum(year_cnt.values()) / len(year_cnt.keys()))
+        except ZeroDivisionError:
+            year_avg = 0
 
-    @staticmethod
-    def certificates_issued(name=None, start=None, end=None):
-        """
-        Generates simple report of number of certificates issued by the authority, if no authority
-        is specified report on total number of certificates.
+        return [authority.name, authority.description, day_avg, month_avg, year_avg]
 
-        :param name:
-        :param start:
-        :param end:
-        :return:
-        """
-
-        def _calculate_row(authority):
-            day_cnt = Counter()
-            month_cnt = Counter()
-            year_cnt = Counter()
-
-            for cert in authority.certificates:
-                date = cert.date_created.date()
-                day_cnt[date.day] += 1
-                month_cnt[date.month] += 1
-                year_cnt[date.year] += 1
-
-            try:
-                day_avg = int(sum(day_cnt.values()) / len(day_cnt.keys()))
-            except ZeroDivisionError:
-                day_avg = 0
-
-            try:
-                month_avg = int(sum(month_cnt.values()) / len(month_cnt.keys()))
-            except ZeroDivisionError:
-                month_avg = 0
-
-            try:
-                year_avg = int(sum(year_cnt.values()) / len(year_cnt.keys()))
-            except ZeroDivisionError:
-                year_avg = 0
-
-            return [authority.name, authority.description, day_avg, month_avg, year_avg]
-
-        rows = []
-        if not name:
-            for authority in authority_service.get_all():
-                rows.append(_calculate_row(authority))
-
-        else:
-            authority = authority_service.get_by_name(name)
-
-            if not authority:
-                sys.stderr.write('[!] Authority {0} was not found.'.format(name))
-                sys.exit(1)
-
+    rows = []
+    if not name:
+        for authority in authority_service.get_all():
             rows.append(_calculate_row(authority))
 
-        sys.stdout.write(tabulate(rows, headers=["Authority Name", "Description", "Daily Average", "Monthy Average", "Yearly Average"]) + "\n")
+    else:
+        authority = authority_service.get_by_name(name)
+
+        if not authority:
+            sys.stderr.write('[!] Authority {0} was not found.'.format(name))
+            sys.exit(1)
+
+        rows.append(_calculate_row(authority))
+
+    sys.stdout.write(tabulate(rows, headers=["Authority Name", "Description", "Daily Average", "Monthy Average", "Yearly Average"]) + "\n")
+
+
+@report_manager.command
+def expires(start=None, end=None):
+    """
+    Returns a report of expiring certificates within the given range.
+
+    By default returns certificates expiring within the next 30 days.
+
+    start: 'YYYY-MM-DD'
+    end: 'YYYY-MM-DD'
+    """
+    if not start:
+        start = arrow.utcnow()
+    else:
+        start = arrow.get(start)
+
+    if not end:
+        end = start + timedelta(days=30)
+    else:
+        end = arrow.get(end)
+
+    certs = cert_service.get_by_expiration(start, end)
+
+    rows = []
+    for cert in certs:
+        try:
+            rows.append([cert.name, cert.owner, cert.user.email, cert.not_before.format('YYYY-MM-DD'), cert.not_after.format('YYYY-MM-DD'), len(cert.endpoints)])
+        except AttributeError:
+            print(cert.name)
+
+    sys.stdout.write(tabulate(rows, headers=["Name", "Owner", "Creator", "Not Before", "Not After", "Endpoints"]) + "\n")
+
+
+@report_manager.command
+def active_fqdns():
+    """
+    Generates a report that gives the number of active fqdns, but root domain.
+    """
+    from lemur.certificates.service import get_all_certs
+    sys.stdout.write("FQDN, Root Domain, Issuer, Total Length (days), Time until expiration (days)\n")
+    for cert in get_all_certs():
+        if not cert.expired:
+            now = arrow.utcnow()
+            ttl = now - cert.not_before
+            total_length = cert.not_after - cert.not_before
+
+            for fqdn in cert.domains:
+                root_domain = ".".join(fqdn.name.split('.')[-2:])
+                sys.stdout.write(", ".join([fqdn.name, root_domain, cert.issuer, str(total_length.days), str(ttl.days)]) + "\n")
 
 
 class Sources(Command):
@@ -829,7 +843,7 @@ def main():
     manager.add_command("reset_password", ResetPassword())
     manager.add_command("create_role", CreateRole())
     manager.add_command("sources", Sources())
-    manager.add_command("report", Report())
+    manager.add_command("report", report_manager)
     manager.add_command("rotate_certificate", RotateCertificate())
     manager.add_command("reissue_certificate", ReissueCertificate())
     manager.run()

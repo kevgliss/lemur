@@ -77,6 +77,18 @@ def get_by_source(source_label):
     return Certificate.query.filter(Certificate.sources.any(label=source_label))
 
 
+def get_by_expiration(start, end):
+    """
+    Gets all certificates that expire within the given range.
+
+    :param start:
+    :param end:
+    :return:
+    """
+    return Certificate.query.filter(Certificate.not_after <= end.format('YYYY-MM-DD')) \
+        .filter(Certificate.not_after >= start.format('YYYY-MM-DD')).all()
+
+
 def find_duplicates(cert):
     """
     Finds certificates that already exist within Lemur. We do this by looking for
