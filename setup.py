@@ -46,7 +46,7 @@ install_requires = [
     'BeautifulSoup4==4.4.1',
     'requests==2.9.1',
     'psycopg2==2.6.1',
-    'arrow==0.9.0',
+    'arrow==0.10.0',
     'boto==2.38.0',  # we might make this optional
     'six==1.10.0',
     'gunicorn==19.4.1',
