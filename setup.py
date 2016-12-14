@@ -44,7 +44,7 @@ install_requires = [
     'Flask-Mail==0.9.1',
     'SQLAlchemy-Utils==0.31.4',
     'BeautifulSoup4==4.4.1',
-    'requests==2.9.1',
+    'requests==2.12.4',
     'psycopg2==2.6.1',
     'arrow==0.7.0',
     'boto==2.38.0',  # we might make this optional
