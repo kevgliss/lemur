@@ -25,7 +25,7 @@
     "gulp-filter": "^1.0.0",
     "gulp-flatten": "^0.0.2",
     "gulp-imagemin": "^0.6.2",
-    "gulp-inject": "~1.0.1",
+    "gulp-inject": "~4.2.0",
     "gulp-jshint": "^1.10.0",
     "gulp-load-plugins": "^0.5.3",
     "gulp-minify-html": "~0.1.4",
