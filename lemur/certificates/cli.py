@@ -135,6 +135,12 @@ def request_reissue(certificate, commit):
         print("[+] New certificate named: {0}".format(new_cert.name))
 
 
+@manager.command
+def search(query_string):
+    from lemur.certificates.service import search
+    print(search(query_string))
+
+
 @manager.option('-e', '--endpoint', dest='endpoint_name', help='Name of the endpoint you wish to rotate.')
 @manager.option('-n', '--new-certificate', dest='new_certificate_name', help='Name of the certificate you wish to rotate to.')
 @manager.option('-o', '--old-certificate', dest='old_certificate_name', help='Name of the certificate you wish to rotate.')

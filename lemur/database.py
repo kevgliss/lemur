@@ -12,6 +12,7 @@
 from sqlalchemy import exc
 from sqlalchemy.sql import and_, or_
 from sqlalchemy.orm import make_transient
+from sqlalchemy_searchable import search as fulltext_search
 
 from lemur.extensions import db
 from lemur.exceptions import AttrNotFound, DuplicateError
@@ -293,4 +294,28 @@ def sort_and_page(query, model, args):
     # offset calculated at zero
     page -= 1
     items = query.offset(count * page).limit(count).all()
+    return dict(items=items, total=total)
+
+
+def search(query, models, args):
+    """
+    Performs a full-text search of the given model. If multiple models
+    are presented we join all models before performing our search.
+    :param query:
+    :param models:
+    :param args:
+    :return:
+    """
+    page = args.pop('page')
+    count = args.pop('count')
+    query_string = args.pop('query')
+
+    query = fulltext_search(query, query_string)
+
+    total = query.count()
+
+    # offset calculated at zero
+    page -= 1
+    items = query.offset(count * page).limit(count).all()
+
     return dict(items=items, total=total)

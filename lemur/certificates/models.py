@@ -18,6 +18,8 @@ from idna.core import InvalidCodepoint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import case, extract
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy_searchable import make_searchable
+from sqlalchemy_utils.types import TSVectorType
 from sqlalchemy import event, Integer, ForeignKey, String, PassiveDefault, func, Column, Text, Boolean
 
 from sqlalchemy_utils.types.arrow import ArrowType
@@ -29,10 +31,8 @@ from lemur.extensions import sentry
 
 from lemur.utils import Vault
 from lemur.common import defaults
-
-from lemur.plugins.base import plugins
-
 from lemur.extensions import metrics
+from lemur.plugins.base import plugins
 
 from lemur.models import certificate_associations, certificate_source_associations, \
     certificate_destination_associations, certificate_notification_associations, \
@@ -40,6 +40,8 @@ from lemur.models import certificate_associations, certificate_source_associatio
 
 from lemur.domains.models import Domain
 from lemur.policies.models import RotationPolicy
+
+make_searchable()
 
 
 def get_sequence(name):
@@ -123,9 +125,10 @@ class Certificate(db.Model):
 
     logs = relationship('Log', backref='certificate')
     endpoints = relationship('Endpoint', backref='certificate')
-    rotation_policy = relationship("RotationPolicy")
+    rotation_policy = relationship('RotationPolicy')
 
     sensitive_fields = ('private_key',)
+    search_vector = Column(TSVectorType('name', 'owner', 'cn', 'signing_algorithm'))
 
     def __init__(self, **kwargs):
         cert = lemur.common.utils.parse_certificate(kwargs['body'])
