@@ -16,6 +16,8 @@ class IssuerPlugin(Plugin):
     """
     type = 'issuer'
 
+    default_options = []
+
     def create_certificate(self, csr, issuer_options):
         raise NotImplementedError
 
@@ -24,3 +26,7 @@ class IssuerPlugin(Plugin):
 
     def revoke_certificate(self, certificate, comments):
         raise NotImplementedError
+
+    @property
+    def options(self):
+        return self.default_options + self.additional_options

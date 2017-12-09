@@ -151,7 +151,7 @@ def map_cis_fields(options, csr):
         options['validity_end'] = arrow.utcnow().replace(years=options['validity_years'])
 
     data = {
-        "profile_name": current_app.config.get('DIGICERT_CIS_PROFILE_NAME'),
+        "profile_name": options.get('profile', current_app.config.get('DIGICERT_CIS_PROFILE_NAME')),
         "common_name": options['common_name'],
         "additional_dns_names": get_additional_names(options),
         "csr": csr,
@@ -349,8 +349,6 @@ class DigiCertCISSourcePlugin(SourcePlugin):
     author = 'Kevin Glisson'
     author_url = 'https://github.com/netflix/lemur.git'
 
-    additional_options = []
-
     def __init__(self, *args, **kwargs):
         """Initialize source with appropriate details."""
         required_vars = [
@@ -417,6 +415,21 @@ class DigiCertCISIssuerPlugin(IssuerPlugin):
     author = 'Kevin Glisson'
     author_url = 'https://github.com/netflix/lemur.git'
 
+    additional_options = [
+        {
+            'name': 'profileName',
+            'type': 'str',
+            'required': True,
+            'helpMessage': 'DigiCert CIS profile to use.'
+        },
+        {
+            'name': 'chain',
+            'type': 'str',
+            'required': True,
+            'helpMessage': 'DigiCert intermediate chain to use.'
+        }
+    ]
+
     def __init__(self, *args, **kwargs):
         """Initialize the issuer with the appropriate details."""
         required_vars = [
@@ -424,7 +437,7 @@ class DigiCertCISIssuerPlugin(IssuerPlugin):
             'DIGICERT_CIS_URL',
             'DIGICERT_CIS_ROOT',
             'DIGICERT_CIS_INTERMEDIATE',
-            'DIGICERT_CIS_PROFILE_NAME'
+            'DIGICERT_CIS_PROFILE'
         ]
 
         validate_conf(current_app, required_vars)
@@ -443,6 +456,13 @@ class DigiCertCISIssuerPlugin(IssuerPlugin):
 
     def create_certificate(self, csr, issuer_options):
         """Create a DigiCert certificate."""
+
+        # override profile name if provided
+        profile = self.get_option('profileName', issuer_options['authority']['options'])
+        if not profile:
+            profile = current_app.config.get('DIGICERT_CIS_PROFILE')
+        issuer_options['profile'] = profile
+
         base_url = current_app.config.get('DIGICERT_CIS_URL')
 
         # make certificate request
@@ -457,7 +477,12 @@ class DigiCertCISIssuerPlugin(IssuerPlugin):
 
         self.session.headers.pop('Accept')
         end_entity = pem.parse(certificate_pem)[0]
-        return "\n".join(str(end_entity).splitlines()), current_app.config.get('DIGICERT_CIS_INTERMEDIATE'), data['id']
+
+        chain = self.get_option('chain', issuer_options['authority'])
+        if not chain:
+            chain = current_app.config.get('DIGICERT_CIS_INTERMEDIATE')
+
+        return "\n".join(str(end_entity).splitlines()), chain, data['id']
 
     def revoke_certificate(self, certificate, comments):
         """Revoke a Digicert certificate."""
